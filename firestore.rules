@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net: Default Deny all Collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Core Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Entity Specific Validation Blueprints ---
+    function isValidUser(user) {
+      return user.name is string && user.name.size() > 0 && user.name.size() <= 100;
+    }
+
+    function isValidHabit(habit) {
+      return habit.id is string && habit.id.size() <= 128 &&
+             habit.name is string && habit.name.size() > 0 && habit.name.size() <= 200 &&
+             habit.frequency is string &&
+             (habit.frequency == 'daily' || habit.frequency == '3x per week' || habit.frequency == '5x per week' || habit.frequency == 'weekends') &&
+             habit.startDate is string && habit.startDate.size() <= 32 &&
+             habit.streakCount is int && habit.streakCount >= 0 &&
+             habit.longestStreak is int && habit.longestStreak >= 0 &&
+             habit.missedDays is int && habit.missedDays >= 0 &&
+             habit.completedDatesCount is int && habit.completedDatesCount >= 0 &&
+             (habit.lastCompletedDate == null || (habit.lastCompletedDate is string && habit.lastCompletedDate.size() <= 32)) &&
+             habit.history is map;
+    }
+
+    function isValidChat(chat) {
+      return chat.id is string && chat.id.size() <= 128 &&
+             chat.role is string && (chat.role == 'user' || chat.role == 'model') &&
+             chat.text is string && chat.text.size() <= 10000 &&
+             chat.timestamp is string && chat.timestamp.size() <= 50;
+    }
+
+    // --- Collection Matching and Authorization Rules ---
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+      allow delete: if false;
+
+      // Subcollection: habits
+      match /habits/{habitId} {
+        allow get: if isOwner(userId) && isValidId(habitId);
+        allow list: if isOwner(userId);
+        
+        allow create: if isOwner(userId) && isValidId(habitId) && isValidHabit(request.resource.data);
+        allow update: if isOwner(userId) && isValidId(habitId) && isValidHabit(request.resource.data) &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasAny(['streakCount', 'longestStreak', 'missedDays', 'lastCompletedDate', 'completedDatesCount', 'history', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(habitId);
+      }
+
+      // Subcollection: chats (Coach Gideon message threads)
+      match /chats/{chatId} {
+        allow get: if isOwner(userId) && isValidId(chatId);
+        allow list: if isOwner(userId);
+        
+        allow create: if isOwner(userId) && isValidId(chatId) && isValidChat(request.resource.data);
+        allow delete: if isOwner(userId) && isValidId(chatId);
+      }
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile and preferences metadata",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "User profile creation date"
+        }
+      },
+      "required": ["name"]
+    },
+    "habit": {
+      "title": "Habit",
+      "description": "A habit template tracked by the user",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique key identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "The description or name of the habit"
+        },
+        "frequency": {
+          "type": "string",
+          "enum": ["daily", "3x per week", "5x per week", "weekends"],
+          "description": "Target cycle frequency"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Habit start date in YYYY-MM-DD"
+        },
+        "streakCount": {
+          "type": "integer",
+          "description": "Current consecutive streak days count"
+        },
+        "longestStreak": {
+          "type": "integer",
+          "description": "Longest recorded consecutive streak days"
+        },
+        "missedDays": {
+          "type": "integer",
+          "description": "Number of missed daily goals since start"
+        },
+        "lastCompletedDate": {
+          "type": "string",
+          "description": "Last ISO date string user completed the goal"
+        },
+        "completedDatesCount": {
+          "type": "integer",
+          "description": "Aggregate complete history count"
+        },
+        "history": {
+          "type": "object",
+          "description": "A record dictionary map of complete check-ins e.g. YYYY-MM-DD to true"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last update"
+        }
+      },
+      "required": ["id", "name", "frequency", "startDate"]
+    },
+    "chat": {
+      "title": "Chat Message",
+      "description": "Timeline message record with Coach Gideon",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique message key"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "model"],
+          "description": "Role of message author"
+        },
+        "text": {
+          "type": "string",
+          "description": "The message body"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation time of chat entry"
+        }
+      },
+      "required": ["id", "role", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "user",
+      "description": "Parent user configuration collection"
+    },
+    "users/{userId}/habits/{habitId}": {
+      "schema": "habit",
+      "description": "Habits registered per individual user"
+    },
+    "users/{userId}/chats/{chatId}": {
+      "schema": "chat",
+      "description": "Chat log timeline messages for a user"
+    }
+  }
+}

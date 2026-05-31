@@ -1,0 +1,6 @@
+{
+  "name": "Habit Coach",
+  "description": "A strict but supportive AI habit coach and streak tracker that helps build long-term consistency in gym, coding, reading, and studying routines.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
