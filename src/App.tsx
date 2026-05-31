@@ -55,6 +55,11 @@ export default function App() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [isOfflineSandbox, setIsOfflineSandbox] = useState(false);
 
+  // Sidebar auth helper configuration states
+  const [sidebarAuthError, setSidebarAuthError] = useState<string | null>(null);
+  const [showSidebarProvidersHelp, setShowSidebarProvidersHelp] = useState(false);
+  const [showSidebarDomainsHelp, setShowSidebarDomainsHelp] = useState(false);
+
   // State variables synchronized with localStorage and Firestore
   const [habits, setHabits] = useState<Habit[]>(() => {
     const saved = localStorage.getItem("habit_tracker_habits");
@@ -185,6 +190,9 @@ export default function App() {
 
   // Google Login and initial sync
   const handleGoogleSignIn = async () => {
+    setSidebarAuthError(null);
+    setShowSidebarProvidersHelp(false);
+    setShowSidebarDomainsHelp(false);
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
@@ -209,6 +217,19 @@ export default function App() {
       }
     } catch (error: any) {
       console.error("Google login failed", error);
+      let errMsg = error.message || "Failed to synchronize with Google database.";
+      if (error.code === "auth/operation-not-allowed") {
+        setShowSidebarProvidersHelp(true);
+        errMsg = "Google sign-in is disabled in your Firebase Settings.";
+      } else if (error.code === "auth/unauthorized-domain") {
+        setShowSidebarDomainsHelp(true);
+        errMsg = "This sandbox domain has not been whitelisted in Firebase Authorized Domains.";
+      } else if (error.code === "auth/popup-blocked") {
+        errMsg = "Popup was blocked by your browser. Open the preview in a new tab.";
+      } else if (error.code === "auth/popup-closed-by-user") {
+        errMsg = "Sign-in window was closed before completion.";
+      }
+      setSidebarAuthError(errMsg);
     }
   };
 
@@ -581,7 +602,7 @@ export default function App() {
           </div>
 
           {!user && (
-            <div className="mt-1">
+            <div className="mt-1 space-y-2">
               <button
                 onClick={handleGoogleSignIn}
                 className="w-full py-2 bg-white hover:bg-[#E8E2D9] border border-[#E8E2D9] text-[#2D2A26] hover:scale-[1.01] rounded-xl text-[10px] font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
@@ -594,6 +615,48 @@ export default function App() {
                 </svg>
                 <span>Google Database Sync</span>
               </button>
+
+              {sidebarAuthError && (
+                <div className="bg-[#FDA281]/10 text-[#E07A5F] border border-[#FDA281]/30 p-2.5 rounded-lg text-[9.5px] font-sans leading-normal">
+                  <div className="font-bold flex items-center gap-1 text-[10px] text-[#2D2A26] mb-1">
+                    <span>⚠️ Firebase Sync Alert</span>
+                  </div>
+                  <p>{sidebarAuthError}</p>
+
+                  {showSidebarProvidersHelp && (
+                    <div className="mt-2 pt-2 border-t border-[#E8E2D9] space-y-1">
+                      <p className="text-[9px] text-[#706961]">How to turn on Google Provider:</p>
+                      <a 
+                        href="https://console.firebase.google.com/project/gen-lang-client-0577777315/authentication/providers" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#7D8F69] font-bold underline block"
+                      >
+                        1. Open Auth Providers Settings ↗
+                      </a>
+                      <p className="text-[9px] text-stone-500">{"2. Click 'Add Provider' -> 'Google' -> and click Enable."}</p>
+                    </div>
+                  )}
+
+                  {showSidebarDomainsHelp && (
+                    <div className="mt-2 pt-2 border-t border-[#E8E2D9] space-y-1">
+                      <p className="text-[9px] text-[#706961]">Authed domain required:</p>
+                      <a 
+                        href="https://console.firebase.google.com/project/gen-lang-client-0577777315/authentication/settings" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#7D8F69] font-bold underline block"
+                      >
+                        1. Open Auth Settings Panel ↗
+                      </a>
+                      <p className="text-[9px] text-stone-500">2. Add this domain to Authorized Domains:</p>
+                      <code className="bg-[#F7F3EE] border px-1 rounded block text-stone-600 truncate font-mono text-[8px] select-all">
+                        {window.location.hostname}
+                      </code>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -45,9 +45,24 @@ export function AuthScreen({ onBypassOffline }: AuthScreenProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Guided installation states
+  const [showDomainHelp, setShowDomainHelp] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [highlightEmailForm, setHighlightEmailForm] = useState(false);
+  const [showOperationNotAllowedHelp, setShowOperationNotAllowedHelp] = useState(false);
+  const [providerType, setProviderType] = useState<"google" | "email" | null>(null);
+
+  const handleCopyHostname = () => {
+    navigator.clipboard.writeText(window.location.hostname);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const resetMessages = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
+    setShowDomainHelp(false);
+    setShowOperationNotAllowedHelp(false);
   };
 
   const handleGoogleSignIn = async () => {
@@ -67,7 +82,20 @@ export function AuthScreen({ onBypassOffline }: AuthScreenProps) {
       setSuccessMsg("Logged in successfully with Google! Loading your coach space...");
     } catch (err: any) {
       console.error("Google Auth error:", err);
-      setErrorMsg(err.message || "OAuth login cancelled or failed. Please try again.");
+      let clientMsg = err.message || "OAuth login cancelled or failed. Please try again.";
+      if (err.code === "auth/operation-not-allowed") {
+        setProviderType("google");
+        setShowOperationNotAllowedHelp(true);
+        clientMsg = "Google Sign-In is disabled for this project. Please go to your Firebase Console under 'Authentication' -> 'Sign-in method', click 'Add new provider', and enable 'Google'.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        setShowDomainHelp(true);
+        clientMsg = `Firebase Security Block: This sandbox domain (${window.location.hostname}) has not been authorized in your Firebase Project configuration. Google and Firebase block OAuth popups until this domain is safe-listed.`;
+      } else if (err.code === "auth/popup-blocked") {
+        clientMsg = "The popup was blocked by your browser constraint. Click 'Open in New Tab' at the top-right of the preview editor, or use the 'Offline Guest Sandbox' mode below.";
+      } else if (err.code === "auth/popup-closed-by-user") {
+        clientMsg = "Login window was closed. If you are using the embedded preview, browser security blocks popups. First click 'Open in New Tab' at the top-right of your preview panel, then sign in there.";
+      }
+      setErrorMsg(clientMsg);
     } finally {
       setLoading(false);
     }
@@ -127,6 +155,10 @@ export function AuthScreen({ onBypassOffline }: AuthScreenProps) {
         clientMsg = "Invalid email or password. Please verify your credentials.";
       } else if (err.code === "auth/invalid-email") {
         clientMsg = "The email representation is invalid.";
+      } else if (err.code === "auth/operation-not-allowed") {
+        setProviderType("email");
+        setShowOperationNotAllowedHelp(true);
+        clientMsg = "Email/Password sign-up is disabled on your Firebase project. Please enable 'Email/Password' under 'Authentication' -> 'Sign-in method' in your Firebase Console.";
       }
       setErrorMsg(clientMsg);
     } finally {
@@ -245,6 +277,157 @@ export function AuthScreen({ onBypassOffline }: AuthScreenProps) {
               </div>
             )}
 
+            {/* Dynamic Domain Security Setup Guide */}
+            {showDomainHelp && (
+              <div className="bg-[#F7F3EE] border-2 border-[#E07A5F] p-4.5 rounded-2xl space-y-3 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#E07A5F] animate-pulse" />
+                  <h4 className="text-sm font-serif font-black text-[#2D2A26]">Firebase Domain Authorization Guide</h4>
+                </div>
+                <p className="text-xs text-[#706961] leading-relaxed font-sans">
+                  Firebase Authentication requires you to authorize this sandbox domain before Google Login can process safely. Follow these quick steps to whitelist the domain:
+                </p>
+                
+                <ol className="text-xs text-[#706961] space-y-2.5 list-decimal list-inside font-sans bg-white p-3 pr-2 rounded-xl border border-[#E8E2D9]">
+                  <li className="leading-relaxed">
+                    Open your {" "}
+                    <a  
+                      href="https://console.firebase.google.com/project/gen-lang-client-0577777315/authentication/settings" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[#7D8F69] font-bold underline hover:text-[#6c7d5c] inline-flex items-center gap-0.5 font-mono"
+                    >
+                      Firebase Settings Panel ↗
+                    </a>
+                  </li>
+                  <li className="leading-relaxed">
+                    Scroll down or navigate to the <strong className="text-[#2D2A26]">"Authorized domains"</strong> card.
+                  </li>
+                  <li className="leading-relaxed">
+                    Click the <strong className="text-[#2D2A26]">"Add domain"</strong> button.
+                  </li>
+                  <li className="leading-relaxed">
+                    Paste this exact domain string:
+                    <div className="mt-1.5 flex items-center gap-2 px-1">
+                      <code className="bg-[#F7F3EE] border border-[#E8E2D9] px-2 py-1.5 rounded text-[11px] text-[#E07A5F] select-all break-all block flex-1 font-mono font-bold">
+                        {window.location.hostname}
+                      </code>
+                      <button 
+                        type="button"
+                        onClick={handleCopyHostname}
+                        className="px-3 py-1.5 bg-[#7D8F69] text-white rounded-lg text-xs font-bold hover:bg-[#6c7d5c] transition-colors flex-shrink-0"
+                      >
+                        {copied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                  </li>
+                </ol>
+                <div className="bg-[#7D8F69]/5 p-2.5 px-3 rounded-lg border border-[#7D8F69]/20 text-[10.5px] text-[#4A443F] font-sans">
+                  💡 <strong className="text-[#7D8F69]">Don't want to use Google?</strong> You can also sign up using a simple email and password or use the <strong>Offline Guest Sandbox</strong> below.
+                </div>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSignUp(true);
+                      setHighlightEmailForm(true);
+                      setErrorMsg(null);
+                      setSuccessMsg("Great choice! Let's register standard secure credentials. Fill in the highlighted form below.");
+                      setTimeout(() => {
+                        const formElem = document.getElementById("email-auth-form");
+                        if (formElem) {
+                          formElem.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                      }, 100);
+                    }}
+                    className="w-full py-3 bg-[#7D8F69] hover:bg-[#6c7d5c] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Mail className="w-4 h-4 text-white" />
+                    <span>Quick Fix: Register with Email & Password instead</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-white" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Dynamic Provider Setup Guide (auth/operation-not-allowed) */}
+            {showOperationNotAllowedHelp && (
+              <div className="bg-[#F7F3EE] border border-[#E07A5F] border-2 p-5 rounded-2xl space-y-4 shadow-sm animate-fade-in text-left">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#E07A5F] animate-pulse" />
+                  <h4 className="text-sm font-serif font-black text-[#2D2A26]">Enable Firebase Auth Providers</h4>
+                </div>
+                
+                <p className="text-xs text-[#706961] leading-relaxed font-sans">
+                  Firebase has blocked this authentication flow with error code <code className="bg-[#E8E2D9] px-1.5 py-0.5 rounded text-[#2D2A26] font-mono text-[11px] font-bold">auth/operation-not-allowed</code>. This indicates that the active sign-in methods are not enabled on your current Firebase configuration.
+                </p>
+
+                <div className="bg-white p-4 rounded-xl border border-[#E8E2D9] space-y-3 font-sans">
+                  <div className="text-xs font-bold text-[#2D2A26]">
+                    Follow these simple steps:
+                  </div>
+
+                  <ol className="text-xs text-[#706961] space-y-2 list-decimal list-inside">
+                    <li className="leading-relaxed">
+                      Go directly to your:{" "}
+                      <a 
+                        href="https://console.firebase.google.com/project/gen-lang-client-0577777315/authentication/providers" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#7D8F69] font-black underline hover:text-[#5e6b4e] inline-flex items-center gap-0.5 font-mono"
+                      >
+                        Firebase Sign-in Provider Dashboard ↗
+                      </a>
+                    </li>
+                    <li className="leading-relaxed">
+                      Click <strong className="text-[#2D2A26]">"Add new provider"</strong> (or configure existing).
+                    </li>
+                    <li className="leading-relaxed text-[#2D2A26]">
+                      Enable authorization providers:
+                      <div className="mt-2.5 pl-4 space-y-3">
+                        <div className="bg-[#F7F3EE]/40 p-2.5 rounded-lg border border-[#E8E2D9] space-y-1">
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E07A5F]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#E07A5F]" />
+                            <span>Google Provider (For Continue with Google)</span>
+                          </div>
+                          <p className="text-[10.5px] text-[#706961] pl-3">
+                            Click <strong className="text-stone-700">Google</strong>, click the <strong className="text-stone-700">Enable</strong> switch, enter a support email, and click <strong className="text-stone-700">Save</strong>.
+                          </p>
+                        </div>
+                        <div className="bg-[#F7F3EE]/40 p-2.5 rounded-lg border border-[#E8E2D9] space-y-1">
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#7D8F69]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#7D8F69]" />
+                            <span>Email/Password Provider (For Manual Sign-Up)</span>
+                          </div>
+                          <p className="text-[10.5px] text-[#706961] pl-3">
+                            Click <strong className="text-stone-700">Email/Password</strong>, toggle <strong className="text-stone-700">Enable</strong>, and click <strong className="text-stone-700">Save</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 pt-1 border-t border-[#E8E2D9]/60 pt-3">
+                  <a
+                    href="https://console.firebase.google.com/project/gen-lang-client-0577777315/authentication/providers"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-3 bg-[#7D8F69] hover:bg-[#6c7d5c] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                  >
+                    <span>Configure Firebase Settings ↗</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={onBypassOffline}
+                    className="py-3 px-4 bg-white hover:bg-gray-50 border border-[#E8E2D9] text-[#706961] rounded-xl text-xs font-bold transition-all"
+                  >
+                    Use Offline Guest Mode
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Success notifications */}
             {successMsg && (
               <div className="bg-[#7D8F69]/10 text-[#7D8F69] border border-[#7D8F69]/30 p-4 rounded-xl flex gap-3 items-start text-xs font-mono">
@@ -278,7 +461,16 @@ export function AuthScreen({ onBypassOffline }: AuthScreenProps) {
             </div>
 
             {/* Email & Password Registration Form */}
-            <form onSubmit={handleEmailAuthSubmit} className="space-y-4">
+            <form 
+              id="email-auth-form"
+              onSubmit={handleEmailAuthSubmit} 
+              onFocus={() => setHighlightEmailForm(false)}
+              className={`space-y-4 transition-all duration-500 rounded-3xl ${
+                highlightEmailForm 
+                  ? "ring-4 ring-[#7D8F69] bg-[#7D8F69]/5 p-5 border border-[#7D8F69]/30 -mx-4 shadow-lg animate-pulse" 
+                  : ""
+              }`}
+            >
               
               {isSignUp && (
                 <div className="space-y-1.5">
