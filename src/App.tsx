@@ -69,10 +69,12 @@ export default function App() {
         // Clean up any old mock state data instantly per user request
         if (Array.isArray(parsed)) {
           return parsed.filter(
-            (h: any) =>
-              h.id !== "habit-gym" &&
-              h.id !== "habit-coding" &&
-              h.id !== "habit-reading"
+            (h: unknown) => {
+              const habit = h as Habit;
+              return habit.id !== "habit-gym" &&
+                habit.id !== "habit-coding" &&
+                habit.id !== "habit-reading";
+            }
           );
         }
       } catch (e) {
@@ -217,17 +219,25 @@ export default function App() {
       }
     } catch (error: unknown) {
       console.error("Google login failed", error);
-      let errMsg = (error as any).message || "Failed to synchronize with Google database.";
-      if ((error as any).code === "auth/operation-not-allowed") {
-        setShowSidebarProvidersHelp(true);
-        errMsg = "Google sign-in is disabled in your Firebase Settings.";
-      } else if ((error as any).code === "auth/unauthorized-domain") {
-        setShowSidebarDomainsHelp(true);
-        errMsg = "This sandbox domain has not been whitelisted in Firebase Authorized Domains.";
-      } else if ((error as any).code === "auth/popup-blocked") {
-        errMsg = "Popup was blocked by your browser. Open the preview in a new tab.";
-      } else if ((error as any).code === "auth/popup-closed-by-user") {
-        errMsg = "Sign-in window was closed before completion.";
+      let errMsg = "Failed to synchronize with Google database.";
+      
+      if (error instanceof Error && 'code' in error) {
+        const errorCode = (error as { code: string }).code;
+        const errorMessage = error.message;
+        
+        if (errorCode === "auth/operation-not-allowed") {
+          setShowSidebarProvidersHelp(true);
+          errMsg = "Google sign-in is disabled in your Firebase Settings.";
+        } else if (errorCode === "auth/unauthorized-domain") {
+          setShowSidebarDomainsHelp(true);
+          errMsg = "This sandbox domain has not been whitelisted in Firebase Authorized Domains.";
+        } else if (errorCode === "auth/popup-blocked") {
+          errMsg = "Popup was blocked by your browser. Open the preview in a new tab.";
+        } else if (errorCode === "auth/popup-closed-by-user") {
+          errMsg = "Sign-in window was closed before completion.";
+        } else {
+          errMsg = errorMessage || errMsg;
+        }
       }
       setSidebarAuthError(errMsg);
     }
@@ -605,7 +615,7 @@ export default function App() {
             <div className="mt-1 space-y-2">
               <button
                 onClick={handleGoogleSignIn}
-                className="w-full py-2 bg-white hover:bg-[#E8E2D9] border border-[#E8E2D9] text-[#2D2A26] hover:scale-[1.01] rounded-xl text-[10px] font-bold transition-all shadow-xs flex items-center justify-center gap-2"
+                className="w-full py-2 bg-white hover:bg-[#E8E2D9] border border-[#E8E2D9] text-[#2D2A26] hover:scale-[1.01] rounded-xl text-[10px] font-bold transition-all shadow-xs flex items-c[...]
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
                   <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.61 14.99 1 12 1 7.35 1 3.37 3.68 1.44 7.6l3.86 3C6.22 8.04 8.87 5.04 12 5.04z" />
@@ -724,7 +734,7 @@ export default function App() {
                 const input = form.elements.namedItem("quickHabitName") as HTMLInputElement;
                 const freq = form.elements.namedItem("quickHabitFreq") as HTMLSelectElement;
                 if (input && input.value.trim()) {
-                  await handleAddHabit(input.value.trim(), freq.value as any, today);
+                  await handleAddHabit(input.value.trim(), freq.value as HabitFrequency, today);
                   input.value = "";
                 }
               }} className="flex flex-col sm:flex-row gap-3">
