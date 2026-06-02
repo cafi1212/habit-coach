@@ -7,17 +7,7 @@ import { Habit } from "./types";
 
 // Get today's local date in YYYY-MM-DD format
 export function getTodayStr(): string {
-  // Use 2026-05-31 as today's fixed anchor if the system environment provides it,
-  // otherwise fallback to calendar dates safely.
-  const now = new Date();
-  
-  // Custom fallback to keep dates aligned with prompt system date: 2026-05-31
-  const isAroundMockDate = now.getFullYear() === 2026 || now.getFullYear() < 2026;
-  const year = isAroundMockDate ? 2026 : now.getFullYear();
-  const month = isAroundMockDate ? 4 : now.getMonth(); // 4 represents May (0-indexed)
-  const date = isAroundMockDate ? 31 : now.getDate();
-  
-  const d = new Date(year, month, date);
+  const d = new Date();
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');

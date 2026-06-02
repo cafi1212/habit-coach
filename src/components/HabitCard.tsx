@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Flame, Trophy, AlertTriangle, Calendar, Check, Undo2, Trash2 } from "lucide-react";
 import { Habit } from "../types";
@@ -20,6 +20,7 @@ export function HabitCard({ habit, onToggleComplete, onDelete }: HabitCardProps)
   const today = getTodayStr();
   const isCompletedToday = isCompletedOnDate(habit, today);
   const pastSevenDays = getPastSevenDays();
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   // Color intensities for different streaks
   const getFlameColorClass = (streak: number) => {
@@ -28,6 +29,54 @@ export function HabitCard({ habit, onToggleComplete, onDelete }: HabitCardProps)
     if (streak < 7) return "text-[#E07A5F] fill-[#E07A5F] drop-shadow-[0_0_8px_rgba(224,122,95,0.4)]";
     return "text-red-500 fill-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse";
   };
+
+  if (showConfirmDelete) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white border-2 border-[#FDA281]/40 rounded-2xl p-5 shadow-xs relative overflow-hidden flex flex-col justify-between min-h-[220px]"
+      >
+        <div className="absolute top-0 left-0 right-0 h-1 bg-[#E07A5F]" />
+        
+        <div className="text-center my-auto space-y-3">
+          <div className="w-10 h-10 rounded-full bg-[#E07A5F]/10 flex items-center justify-center mx-auto text-[#E07A5F]">
+            <Trash2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-[#2D2A26] font-serif leading-tight">
+              Delete Habit?
+            </h3>
+            <p className="text-[11px] text-[#706961] mt-1 font-sans leading-normal">
+              "<strong>{habit.name}</strong>" will be permanently removed. Your streaks and history will be cleared.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-4 pt-3 border-t border-[#F2EFE9]">
+          <button
+            type="button"
+            onClick={() => setShowConfirmDelete(false)}
+            className="flex-1 py-1.5 rounded-xl text-xs font-bold text-[#706961] bg-[#F2EFE9] hover:bg-[#E8E2D9] transition-colors border border-[#E8E2D9]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onDelete(habit.id);
+              setShowConfirmDelete(false);
+            }}
+            className="flex-1 py-1.5 rounded-xl text-xs font-bold text-white bg-[#E07A5F] hover:bg-rose-600 transition-colors shadow-sm"
+          >
+            Yes, Delete
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -65,11 +114,7 @@ export function HabitCard({ habit, onToggleComplete, onDelete }: HabitCardProps)
 
           {/* Delete Habit Button */}
           <button
-            onClick={() => {
-              if (confirm(`Are you sure you want to delete "${habit.name}"?`)) {
-                onDelete(habit.id);
-              }
-            }}
+            onClick={() => setShowConfirmDelete(true)}
             className="text-[#A69F95] hover:text-[#E07A5F] p-1.5 rounded-lg hover:bg-[#F2EFE9] transition-colors group"
             title="Delete Habit"
           >

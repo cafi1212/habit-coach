@@ -69,12 +69,10 @@ export default function App() {
         // Clean up any old mock state data instantly per user request
         if (Array.isArray(parsed)) {
           return parsed.filter(
-            (h: unknown) => {
-              const habit = h as Habit;
-              return habit.id !== "habit-gym" &&
-                habit.id !== "habit-coding" &&
-                habit.id !== "habit-reading";
-            }
+            (h: any) =>
+              h.id !== "habit-gym" &&
+              h.id !== "habit-coding" &&
+              h.id !== "habit-reading"
           );
         }
       } catch (e) {
@@ -97,6 +95,7 @@ export default function App() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [newNameInput, setNewNameInput] = useState(userName);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   // Daily Check-in State Variables (Show interactive quick wizard at top of dashboard)
   const [selectedCheckInHabitId, setSelectedCheckInHabitId] = useState<string | null>(() => {
@@ -217,41 +216,31 @@ export default function App() {
         }
         await batch.commit();
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Google login failed", error);
-      let errMsg = "Failed to synchronize with Google database.";
-      
-      if (error instanceof Error && 'code' in error) {
-        const errorCode = (error as { code: string }).code;
-        const errorMessage = error.message;
-        
-        if (errorCode === "auth/operation-not-allowed") {
-          setShowSidebarProvidersHelp(true);
-          errMsg = "Google sign-in is disabled in your Firebase Settings.";
-        } else if (errorCode === "auth/unauthorized-domain") {
-          setShowSidebarDomainsHelp(true);
-          errMsg = "This sandbox domain has not been whitelisted in Firebase Authorized Domains.";
-        } else if (errorCode === "auth/popup-blocked") {
-          errMsg = "Popup was blocked by your browser. Open the preview in a new tab.";
-        } else if (errorCode === "auth/popup-closed-by-user") {
-          errMsg = "Sign-in window was closed before completion.";
-        } else {
-          errMsg = errorMessage || errMsg;
-        }
+      let errMsg = error.message || "Failed to synchronize with Google database.";
+      if (error.code === "auth/operation-not-allowed") {
+        setShowSidebarProvidersHelp(true);
+        errMsg = "Google sign-in is disabled in your Firebase Settings.";
+      } else if (error.code === "auth/unauthorized-domain") {
+        setShowSidebarDomainsHelp(true);
+        errMsg = "This sandbox domain has not been whitelisted in Firebase Authorized Domains.";
+      } else if (error.code === "auth/popup-blocked") {
+        errMsg = "Popup was blocked by your browser. Open the preview in a new tab.";
+      } else if (error.code === "auth/popup-closed-by-user") {
+        errMsg = "Sign-in window was closed before completion.";
       }
       setSidebarAuthError(errMsg);
     }
   };
 
   const handleGoogleSignOut = async () => {
-    if (confirm("Disconnect Google Account from this device? Your local cache will remain intact.")) {
-      try {
-        await signOut(auth);
-        setIsOfflineSandbox(false);
-        setHabits([]);
-      } catch (error) {
-        console.error("Logout failed", error);
-      }
+    try {
+      await signOut(auth);
+      setIsOfflineSandbox(false);
+      setHabits([]);
+    } catch (error) {
+      console.error("Logout failed", error);
     }
   };
 
@@ -590,7 +579,7 @@ export default function App() {
             </div>
             {user ? (
               <button 
-                onClick={handleGoogleSignOut} 
+                onClick={() => setShowSignOutConfirm(true)} 
                 className="p-1 px-1.5 hover:bg-[#E8E2D9] rounded-lg text-xs font-mono text-[#E07A5F] transition-all flex items-center gap-1"
                 title="Disconnect Account"
               >
@@ -598,11 +587,7 @@ export default function App() {
               </button>
             ) : (
               <button 
-                onClick={() => {
-                  if (confirm("Disconnect guest session and return to authentication portal?")) {
-                    setIsOfflineSandbox(false);
-                  }
-                }}
+                onClick={() => setShowSignOutConfirm(true)}
                 className="p-1 px-1.5 hover:bg-[#E8E2D9] rounded-lg text-xs font-mono text-[#E07A5F] transition-all flex items-center gap-1"
                 title="Exit Guest Session"
               >
@@ -611,11 +596,45 @@ export default function App() {
             )}
           </div>
 
+          {showSignOutConfirm && (
+            <div className="bg-[#FDA281]/10 border border-[#FDA281]/30 rounded-xl p-3 flex flex-col gap-2 mt-1">
+              <p className="text-[10px] text-[#2D2A26] font-mono uppercase font-bold">Disconnect Session?</p>
+              <p className="text-[11px] text-[#706961] leading-relaxed">
+                {user 
+                  ? "Are you sure you want to disconnect your Google Account? Caches remain intact." 
+                  : "Are you sure you want to exit the current guest session?"}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSignOutConfirm(false)}
+                  className="flex-1 py-1.5 bg-[#F2EFE9] border border-[#E8E2D9] rounded-lg text-[10px] font-bold text-[#706961] hover:bg-[#E8E2D9]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowSignOutConfirm(false);
+                    if (user) {
+                      await handleGoogleSignOut();
+                    } else {
+                      setIsOfflineSandbox(false);
+                    }
+                  }}
+                  className="flex-1 py-1.5 bg-[#E07A5F] hover:bg-rose-600 rounded-lg text-[10px] font-bold text-white shadow-xs"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          )}
+
           {!user && (
             <div className="mt-1 space-y-2">
               <button
                 onClick={handleGoogleSignIn}
-                className="w-full py-2 bg-white hover:bg-[#E8E2D9] border border-[#E8E2D9] text-[#2D2A26] hover:scale-[1.01] rounded-xl text-[10px] font-bold transition-all shadow-xs flex items-c[...]
+                className="w-full py-2 bg-white hover:bg-[#E8E2D9] border border-[#E8E2D9] text-[#2D2A26] hover:scale-[1.01] rounded-xl text-[10px] font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
                   <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.61 14.99 1 12 1 7.35 1 3.37 3.68 1.44 7.6l3.86 3C6.22 8.04 8.87 5.04 12 5.04z" />
@@ -734,7 +753,7 @@ export default function App() {
                 const input = form.elements.namedItem("quickHabitName") as HTMLInputElement;
                 const freq = form.elements.namedItem("quickHabitFreq") as HTMLSelectElement;
                 if (input && input.value.trim()) {
-                  await handleAddHabit(input.value.trim(), freq.value as HabitFrequency, today);
+                  await handleAddHabit(input.value.trim(), freq.value as any, today);
                   input.value = "";
                 }
               }} className="flex flex-col sm:flex-row gap-3">
